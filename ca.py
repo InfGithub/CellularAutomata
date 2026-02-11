@@ -1,4 +1,4 @@
-from typing import Literal, TextIO, Callable, Any
+from typing import Literal, TextIO, Callable, TypedDict, Any
 from types import ModuleType
 from time import strftime, localtime, time
 from os import makedirs, environ
@@ -212,6 +212,17 @@ class Metatizer:
 
 # ----------------------------------------------------------------
 
+class ResultType(TypedDict):
+    metatizer: Metatizer
+    rulizer: Rulizer
+    time_taken: float
+    one_rate: float
+    zero_rate: float
+    memory_taken: float
+    mark: str
+
+# ----------------------------------------------------------------
+
 class CellularAutomata:
     def __init__(
         self,
@@ -248,9 +259,13 @@ class CellularAutomata:
         self.call_func: Callable = call_func
         self.default_rule_space: Any = default_rule_space
     
-    def run(self):
+    def run(self, mark: str = "") -> ResultType:
+        tick_string: str = strftime(f"%Y-%m-%d-%H-%M-%S-{mark}", localtime())
+
         meta: Metatizer = Metatizer(self.size, self.module)
         log(f"元胞尺寸: {meta.cell.shape}，迭代次数：{self.time}")
+        if mark:
+            log(f"标记：{mark}")
 
         if self.start_pos:
             meta.cell[*self.start_pos] = 1
@@ -264,7 +279,7 @@ class CellularAutomata:
             module=self.module
         )
         self.module.save(
-            f"./rule/{strftime("%Y-%m-%d-%H-%M-%S", localtime())}.rule",
+            f"./rule/{tick_string}.rule",
             rulizer.rule_space
         )
 
@@ -277,15 +292,27 @@ class CellularAutomata:
             saving=self.is_save
         )
 
+        time_taken: float = time() - start_time
+        one_rate: float = float(self.module.sum(result == 1) / result.size * 100)
+        zero_rate: float = float(self.module.sum(result == 0) / result.size * 100)
+        memory_taken: float = result.nbytes / 1048576
         log(
-            f"迭代完毕，用时 {time() - start_time:.4f} s，"
-            f"1/0：{self.module.sum(result == 1) / result.size * 100:.4f} % / "
-            f" {self.module.sum(result == 0) / result.size * 100:.4f} %，"
-            f"内存占用：{result.nbytes / 1048576:,.4f} MB"
+            f"迭代完毕，用时 {time_taken:.4f} s，1/0：{one_rate:.4f} % / "
+            f" {zero_rate:.4f} %，内存占用：{memory_taken:,.4f} MB"
         )
         self.module.save(
-            f"./cell/{strftime("%Y-%m-%d-%H-%M-%S", localtime())}.cell", result
+            f"./cell/{tick_string}.cell", result
         )
+
+        return {
+            "metatizer": meta,
+            "rulizer": rulizer,
+            "time_taken": time_taken,
+            "one_rate": one_rate,
+            "zero_rate": zero_rate,
+            "memory_taken": memory_taken,
+            "mark": mark
+        }
 
 # ----------------------------------------------------------------
 
