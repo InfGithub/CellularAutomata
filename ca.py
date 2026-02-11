@@ -1,3 +1,11 @@
+# ----------------------------------------------------------------
+
+"""
+Cellualr Automata III Author: INF
+"""
+
+# ----------------------------------------------------------------
+
 from typing import Literal, TextIO, Callable, TypedDict, Any
 from types import ModuleType
 from time import strftime, localtime, time
