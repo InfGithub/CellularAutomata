@@ -3,8 +3,33 @@ from types import ModuleType
 from time import strftime, localtime, time
 from os import makedirs, environ
 
+# ----------------------------------------------------------------
+
 from sys import set_int_max_str_digits
 set_int_max_str_digits(0)
+
+# ----------------------------------------------------------------
+
+log_path: str = "latest.log"
+
+open(log_path, mode="w", encoding="utf-8").close()
+file_handle: TextIO = open(log_path, mode="a", encoding="utf-8", buffering=1)
+
+makedirs("./rule", exist_ok=True)
+makedirs("./cell", exist_ok=True)
+
+def log(
+    *texts: Any,
+    level: Literal["TRACE", "DEBUG", "INFO", "WARN", "ERROR", "FATAL"] = "INFO",
+    thread: str = "Main",
+    **kwargs
+):
+
+    info: str = " ".join([item.__str__() for item in texts])
+    text: str = f"[{strftime("%H:%M:%S", localtime())}] [{thread}/{level}]: {info}"
+    file_handle.write(text + "\n")
+
+    print(text, **kwargs)
 
 # ----------------------------------------------------------------
 
@@ -86,7 +111,7 @@ class Metatizer:
     维护元胞状态并提供迭代方法，支持多维元胞自动机模拟。
     """
 
-    def __init__(self, size: list[int], module: ModuleType, log_func: Callable):
+    def __init__(self, size: list[int], module: ModuleType):
         """
         初始化方法。
 
@@ -101,7 +126,6 @@ class Metatizer:
         """
         self.module: ModuleType = module
         self.as_strided_func: Callable = self.module.lib.stride_tricks.as_strided
-        self.log_func: Callable = log_func
 
         self.cell: Any = self.module.zeros(size, dtype=self.module.uint8)
         self.ndim: int = len(size)
@@ -183,7 +207,7 @@ class Metatizer:
             if saving:
                 result[tick] = self.cell.copy()
             if tick == times or tick % steps == 0:
-                self.log_func(f"迭代：{tick} / {times}")
+                log(f"迭代：{tick} / {times}")
         return result if saving else self.cell
 
 # ----------------------------------------------------------------
@@ -192,8 +216,6 @@ class CellularAutomata:
     def __init__(
         self,
         calculate_module: Literal["numpy", "cupy"] = "numpy",
-        log_path: str = "latest.log",
-
         rule: int = 0b00011110,
         time: int = 32,
         size: list[int] = [64],
@@ -204,13 +226,6 @@ class CellularAutomata:
         default_rule_space: Any = None,
     ):
         self.calculate_module: Literal["numpy", "cupy"] = calculate_module
-        self.log_path: str = log_path
-
-        open(self.log_path, mode="w", encoding="utf-8").close()
-        self.file_handle: TextIO = open(self.log_path, mode="a", encoding="utf-8", buffering=1)
-
-        makedirs("./rule", exist_ok=True)
-        makedirs("./cell", exist_ok=True)
 
         if self.calculate_module == "numpy":
             import numpy
@@ -232,24 +247,10 @@ class CellularAutomata:
         self.start_pos: list[int] = start_pos
         self.call_func: Callable = call_func
         self.default_rule_space: Any = default_rule_space
-
-    def log(
-        self,
-        *texts: Any,
-        level: Literal["TRACE", "DEBUG", "INFO", "WARN", "ERROR", "FATAL"] = "INFO",
-        thread: str = "Main",
-        **kwargs
-    ):
-
-        info: str = " ".join([item.__str__() for item in texts])
-        text: str = f"[{strftime("%H:%M:%S", localtime())}] [{thread}/{level}]: {info}"
-        self.file_handle.write(text + "\n")
-
-        print(text, **kwargs)
     
     def run(self):
-        meta: Metatizer = Metatizer(self.size, self.module, log_func=self.log)
-        self.log(f"元胞尺寸: {meta.cell.shape}，迭代次数：{self.time}")
+        meta: Metatizer = Metatizer(self.size, self.module)
+        log(f"元胞尺寸: {meta.cell.shape}，迭代次数：{self.time}")
 
         if self.start_pos:
             meta.cell[*self.start_pos] = 1
@@ -267,7 +268,7 @@ class CellularAutomata:
             rulizer.rule_space
         )
 
-        self.log(f"规则编译完毕，开始迭代。")
+        log(f"规则编译完毕，开始迭代。")
         start_time: float = time()
         result: Any = meta.multiteration(
             rulizer,
@@ -276,7 +277,7 @@ class CellularAutomata:
             saving=self.is_save
         )
 
-        self.log(
+        log(
             f"迭代完毕，用时 {time() - start_time:.4f} s，"
             f"1/0：{self.module.sum(result == 1) / result.size * 100:.4f} % / "
             f" {self.module.sum(result == 0) / result.size * 100:.4f} %，"
@@ -291,10 +292,12 @@ class CellularAutomata:
 if __name__ == "__main__":
     # 示例
     ca = CellularAutomata(
-        calculate_module="cupy",
-        size=[1000000],
-        time=1000,
+        calculate_module="numpy",
+        size=[2560],
+        time=1440,
         is_save=False,
-        log_rate=128
+        log_rate=128,
+        start_pos=[1440],
+        rule=30
     )
     ca.run()
