@@ -119,7 +119,12 @@ class Metatizer:
     维护元胞状态并提供迭代方法，支持多维元胞自动机模拟。
     """
 
-    def __init__(self, size: list[int], module: ModuleType):
+    def __init__(
+        self,
+        size: list[int],
+        module: ModuleType,
+        is_cupy: bool
+    ):
         """
         初始化方法。
 
@@ -134,11 +139,19 @@ class Metatizer:
         """
         self.module: ModuleType = module
         self.as_strided_func: Callable = self.module.lib.stride_tricks.as_strided
+        self.is_cupy: bool = is_cupy
 
         self.cell: Any = self.module.zeros(size, dtype=self.module.uint8)
         self.ndim: int = len(size)
+        self.method_function()
 
-    def metertion(self, rulizer: Rulizer):
+    def method_function(self):
+        if self.is_cupy:
+            self.metertion: Callable[["Metatizer", Rulizer], None] = self.module.fuse(self._metertion)
+        else:
+            self.metertion: Callable[["Metatizer", Rulizer], None] = self._metertion
+
+    def _metertion(self, rulizer: Rulizer):
         """
         迭代方法，会修改 self.cell 的值。
 
@@ -245,6 +258,7 @@ class CellularAutomata:
         default_rule_space: Any = None,
     ):
         self.calculate_module: Literal["numpy", "cupy"] = calculate_module
+        self.is_cupy: bool = self.calculate_module == "cupy"
 
         if self.calculate_module == "numpy":
             import numpy
@@ -270,7 +284,7 @@ class CellularAutomata:
     def run(self, mark: str = "") -> ResultType:
         tick_string: str = strftime(f"%Y-%m-%d-%H-%M-%S-{mark}", localtime())
 
-        meta: Metatizer = Metatizer(self.size, self.module)
+        meta: Metatizer = Metatizer(self.size, self.module, self.is_cupy)
         log(f"元胞尺寸: {meta.cell.shape}，迭代次数：{self.time}")
         if mark:
             log(f"标记：{mark}")
