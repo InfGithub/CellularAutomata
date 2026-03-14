@@ -1,7 +1,7 @@
 # ----------------------------------------------------------------
 
 """
-Cellualr Automata III Author: INF
+Cellular Automata III Author: INF
 """
 
 # ----------------------------------------------------------------
@@ -252,7 +252,8 @@ class CellularAutomata:
         time: int = 32,
         size: list[int] = [64],
         log_rate: int = 4,
-        is_save: bool = False,
+        is_saving: bool = False,
+        is_save: bool = True,
         start_pos: list[int] = [32],
         call_func: Callable = None,
         default_rule_space: Any = None,
@@ -276,6 +277,7 @@ class CellularAutomata:
         self.time: int = time
         self.size: list[int] = size
         self.log_rate: int = log_rate
+        self.is_saving: bool = is_saving
         self.is_save: bool = is_save
         self.start_pos: list[int] = start_pos
         self.call_func: Callable = call_func
@@ -300,10 +302,11 @@ class CellularAutomata:
             default=self.default_rule_space,
             module=self.module
         )
-        self.module.save(
-            f"./rule/{tick_string}.rule",
-            rulizer.rule_space
-        )
+        if self.is_save:
+            self.module.save(
+                f"./rule/{tick_string}.rule",
+                rulizer.rule_space
+            )
 
         log(f"规则编译完毕，开始迭代。")
         start_time: float = time()
@@ -311,7 +314,7 @@ class CellularAutomata:
             rulizer,
             times=self.time,
             steps=self.log_rate,
-            saving=self.is_save
+            saving=self.is_saving
         )
 
         time_taken: float = time() - start_time
@@ -322,9 +325,10 @@ class CellularAutomata:
             f"迭代完毕，用时 {time_taken:.4f} s，1/0：{one_rate:.4f} % / "
             f" {zero_rate:.4f} %，内存占用：{memory_taken:,.4f} MB"
         )
-        self.module.save(
-            f"./cell/{tick_string}.cell", result
-        )
+        if self.is_save:
+            self.module.save(
+                f"./cell/{tick_string}.cell", result
+            )
 
         return {
             "metatizer": meta,
